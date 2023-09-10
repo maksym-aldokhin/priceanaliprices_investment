@@ -12,6 +12,8 @@ class Options:
     def __init__(self):
         parser = ArgumentParser()
         parser.add_argument("--company", help="list of company ", type=str)
+        parser.add_argument("--start", help="start date. format: %m/%d/%Y", type=str)
+        parser.add_argument("--end", help="end date. format: %m/%d/%Y", type=str)
         parsed = parser.parse_args()
 
         if not (',' in parsed.company):
@@ -19,6 +21,8 @@ class Options:
             sys.exit()
 
         self.company = parsed.company.split(',')
+        self.start_date = datetime.datetime.strptime(parsed.start, "%m/%d/%Y")
+        self.end_date = datetime.datetime.strptime(parsed.end, "%m/%d/%Y")
 
 
 def main():
@@ -29,8 +33,8 @@ def main():
     # date = datetime.datetime(2022, 12, 13)
     # while date < datetime.datetime(2022, 12, 14):
     last_download = datetime.datetime(2000, 1, 1)
-    date = datetime.datetime(2008, 8, 18)
-    while date < datetime.datetime(2023, 9, 10):
+    date = options.start_date
+    while date <= options.end_date:
         for company in options.company:
             if datetime.datetime.now() - last_download < datetime.timedelta(seconds=1):
                 time.sleep(1)
