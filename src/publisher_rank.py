@@ -1,5 +1,17 @@
+import sys
 import os
 import json
+from argparse import ArgumentParser
+
+
+class Options:
+    def __init__(self):
+        parser = ArgumentParser()
+        parser.add_argument("--path", help="path to storage", type=str)
+        parsed = parser.parse_args()
+
+        self.path_to_storage = parsed.path
+
 
 publisher_1_class = ['forbes', 'bloomberg', 'cnn', 'times', 'cnbc', 'businessinsider', 'linkedin', 'msn', 'bbc', 'cbs', 'nbc']
 publisher_2_class = ['foxnews', 'post', 'yahoo', 'people', 'washingtonpost', 'dailymail', 'usatoday', 'espn']
@@ -23,6 +35,8 @@ def calculate_rank(publisher : str) -> int:
 
 def read_write_and_calulate(path : str):
     path = path + "/meta.json"
+    if not os.path.exists(path):
+        return
     with open(path, "r+", encoding='utf-8') as f:
         articles = json.load(f)
 
@@ -34,11 +48,13 @@ def read_write_and_calulate(path : str):
         f.truncate()
 
 
-def calculate_publisher_rank():
-    path = os.getcwd() + "/temp/"
+def calculate_publisher_rank(options):
+    path = options.path_to_storage
 
     for company_path in os.listdir(path):
         company_path = path + company_path
+        if os.path.isfile(company_path):
+            continue
         for date_path in os.listdir(company_path):
             date_path = company_path + "/" + date_path
             if os.path.isfile(date_path):
@@ -46,3 +62,12 @@ def calculate_publisher_rank():
             print("start: " + date_path)
             read_write_and_calulate(date_path)
             print("finish: " + date_path)
+
+def main():
+    options = Options()
+
+    calculate_publisher_rank(options)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

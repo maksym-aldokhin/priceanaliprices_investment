@@ -1,6 +1,9 @@
 import os
 import re
 import json
+import sys
+
+from argparse import ArgumentParser
 
 from bs4 import BeautifulSoup
 
@@ -114,19 +117,8 @@ def extract_features(word_list):
     return dict([(word, True) for word in word_list])
 
 
-def calculate_article_rank(article_path : str, classifier, tfidf_vectorizer) -> float:
-    try:
-        with open(article_path, "r", encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-            f.close()
-    except:
-        return 0
-
-    content = clear_file(content)
-    content = filter_word(content)
-    # content = claer_stop_word(content)
-
-    preprocessed_text = preprocess_text(content)
+def calculate_title_rank(text, classifier, tfidf_vectorizer) -> int:
+    preprocessed_text = preprocess_text(text)
     text_vectorized = tfidf_vectorizer.transform([preprocessed_text])
     prediction = classifier.predict(text_vectorized)
 
@@ -177,13 +169,11 @@ def rank_for_date(path, classifier, tfidf_vectorizer):
     with open(path_to_meta, "r+", encoding='utf-8') as f:
         articles = json.load(f)
         for i in range(len(articles)):
-            path_to_file = path + "/" + str(articles[i]["index"]) + ".html"
-            if not os.path.exists(path):
-                print("Not fined: ", path_to_file)
+            if len(str(articles[i]["title"])) < 10:
+                articles[i]["title_rank"] = 0
                 continue
-
-            rank = calculate_article_rank(path_to_file, classifier, tfidf_vectorizer)
-            articles[i]["article_rank"] = rank
+            rank = calculate_title_rank(str(articles[i]["title"]), classifier, tfidf_vectorizer)
+            articles[i]["title_rank"] = rank
         f.seek(0)
         json.dump(articles, f, indent=4)
         print("writed: ", path)
@@ -214,7 +204,7 @@ def splitting_array(input_arr, count):
     return out
 
 
-def calculate_articles_rank(options):
+def calculate_title_rank_for_set(options):
     classifier, tfidf_vectorizer = learn_classifier()
 
     path_to_storage = options.path_to_storage
@@ -263,3 +253,27 @@ def calculate_articles_rank(options):
     print("finish")
 
 
+class Options:
+    def __init__(self):
+        parser = ArgumentParser()
+        parser.add_argument("--company", help="list of company ", type=str)
+        parser.add_argument("--path", help="path to storage", type=str)
+        parsed = parser.parse_args()
+
+        if not (',' in parsed.company):
+            self.company = [parsed.company]
+        else:
+            self.company = parsed.company.split(',')
+
+        self.path_to_storage = parsed.path
+
+
+def main():
+    options = Options()
+
+    print("input company: ", options.company)
+    calculate_title_rank_for_set(options)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

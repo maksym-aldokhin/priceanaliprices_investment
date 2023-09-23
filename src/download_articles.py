@@ -212,13 +212,14 @@ def main():
         company_path = options.path_to_storage + company_path
 
         for date_path in os.listdir(company_path):
-            date = datetime.datetime.strptime(date_path, "%Y-%m-%d")
+            date_path_full = company_path + "/" + date_path
+            if os.path.isfile(date_path_full):
 
-            if date > options.start_date and date <= options.end_date:
-                date_path = company_path + "/" + date_path
-                if os.path.isfile(date_path):
-                    print(date_path)
-                    download_articles(date_path)
+                date = datetime.datetime.strptime(date_path.split(".")[0], "%Y-%m-%d")
+
+                if date > options.start_date and date <= options.end_date:
+                    print(date_path_full)
+                    download_articles(date_path_full)
 
 
 if __name__ == "__main__":
