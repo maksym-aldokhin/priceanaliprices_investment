@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from argparse import ArgumentParser
 
-def search_articles(topic : str, date) -> str:
+def search_articles(topic : str, date, path: str) -> str:
     date_after_str = date.strftime('%Y-%m-%d')
     # print(date_after_str)
     date_before = date + datetime.timedelta(days=1)
@@ -26,7 +26,7 @@ def search_articles(topic : str, date) -> str:
 
     response = requests.get(url)
 
-    path_to_dir = os.getcwd() + "/temp/" + topic
+    path_to_dir = path + "/" + topic
 
     if not os.path.exists(path_to_dir):
         os.makedirs(path_to_dir)
@@ -70,10 +70,10 @@ def main():
             if datetime.datetime.now() - last_download < datetime.timedelta(seconds=1):
                 time.sleep(1)
             try:
-                a = search_articles(company, date)
+                a = search_articles(company, date, options.path_to_storage)
             except:
                 time.sleep(10)
-                a = search_articles(company, date)
+                a = search_articles(company, date, options.path_to_storage)
             last_download = datetime.datetime.now()
         date = date + datetime.timedelta(days=1)
 

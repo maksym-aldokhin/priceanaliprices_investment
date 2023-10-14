@@ -8,7 +8,7 @@ from concurrent import futures
 
 from random import shuffle
 
-# from search_articles import search_articles
+from search_articles import search_articles
 from download_articles import download_articles
 from article_rank import calculate_articles_rank
 # from publisher_rank import calculate_publisher_rank
@@ -43,23 +43,21 @@ def main():
 
     print("input company: ", options.company)
 
-    # date = datetime.datetime(2022, 12, 13)
-    # while date < datetime.datetime(2022, 12, 14):
-    # last_download = datetime.datetime(2000, 1, 1)
-    # date = datetime.datetime(2014, 9, 21)
-    # while date < datetime.datetime(2023, 9, 10):
-    #     for company in options.company:
-    #         if datetime.datetime.now() - last_download < datetime.timedelta(seconds=1):
-    #             time.sleep(1)
-    #         try:
-    #             a = search_articles(company, date)
-    #         except:
-    #             time.sleep(10)
-    #             a = search_articles(company, date)
-    #         download_articles(a)
-    #         last_download = datetime.datetime.now()
-    #     date = date + datetime.timedelta(days=1)3
-    # n_cores = 24
+    last_download = datetime.datetime(2000, 1, 1)
+    date = datetime.datetime(2000, 1, 1)
+    while date < datetime.datetime(2023, 9, 10):
+        for company in options.company:
+            if datetime.datetime.now() - last_download < datetime.timedelta(seconds=1):
+                time.sleep(1)
+            try:
+                a = search_articles(company, date)
+            except:
+                time.sleep(10)
+                a = search_articles(company, date)
+            download_articles(a)
+            last_download = datetime.datetime.now()
+        date = date + datetime.timedelta(days=1)3
+    n_cores = 24
 
     # for company_path in os.listdir(options.path_to_storage):
     #     if not company_path in options.company:
