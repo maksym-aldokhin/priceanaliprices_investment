@@ -94,6 +94,7 @@ def main():
                     print("meta not exists: ", path_to_meta)
                     continue
 
+                print(path_to_meta)
                 with open(path_to_meta, "r", encoding='utf-8') as f:
                     articles = json.load(f)
 
