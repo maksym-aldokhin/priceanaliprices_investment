@@ -43,7 +43,6 @@ def main():
 
     print("input company: ", options.company)
 
-    last_download = datetime.datetime(2000, 1, 1)
     date = datetime.datetime(2000, 1, 1)
     while date < datetime.datetime(2023, 9, 10):
         for company in options.company:
