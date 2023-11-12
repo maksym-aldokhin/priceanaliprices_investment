@@ -209,7 +209,7 @@ def main():
         if not company_path in options.company:
             continue
 
-        company_path = options.path_to_storage + company_path
+        company_path = options.path_to_storage + "/" + company_path
 
         for date_path in os.listdir(company_path):
             date_path_full = company_path + "/" + date_path

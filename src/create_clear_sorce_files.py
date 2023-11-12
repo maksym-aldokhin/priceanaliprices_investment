@@ -1,6 +1,8 @@
 import os
 import re
 import json
+import sys
+import shutil
 
 from bs4 import BeautifulSoup
 
@@ -17,15 +19,33 @@ from concurrent import futures
 
 from random import shuffle
 
+from argparse import ArgumentParser
+
 import negative_articles_set
 import positive_articles_set
 import neutral_articles_set
 
 
+class Options:
+    def __init__(self):
+        parser = ArgumentParser()
+        parser.add_argument("--company", help="list of company ", type=str)
+        parser.add_argument("--path", help="path to storage", type=str)
+        parser.add_argument("--path-to-save", help="path to storage", type=str)
+        parsed = parser.parse_args()
+
+        if not (',' in parsed.company):
+            self.company = [parsed.company]
+        else:
+            self.company = parsed.company.split(',')
+
+        self.path_to_storage = parsed.path
+        self.path_to_save = parsed.path_to_save
+
+
 need_to_remove = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '.', '_', '-', '=', '\'', '\"', '`', '*', '/', '\\', '|', '@', '#', '%', '&', '(', ')', '$', '^', '[', ']', '©', '–', '•', '?', '¢', ':', ';', '<', '>', '—', '’', '“', '”', '+']
 
 
-nltk.download('punkt')
 nltk.download('stopwords')
 
 
@@ -48,46 +68,6 @@ def preprocess_text(text):
     return ' '.join(words)
 
 
-def learn_classifier():
-    positive_dataset = list(set(positive_articles_set.pos_articles))
-    negative_dataset = list(set(negative_articles_set.negative_articles))
-    neutral_dataset = list(set(neutral_articles_set.neu_articles))
-
-    # Preprocess your datasets
-    positive_data = [preprocess_text(text) for text in positive_dataset]
-    negative_data = [preprocess_text(text) for text in negative_dataset]
-    neutral_data = [preprocess_text(text) for text in neutral_dataset]
-
-    from sklearn.feature_extraction.text import TfidfVectorizer
-
-    # Combine all data and labels
-    all_data = positive_data + negative_data + neutral_data
-    labels = ['positive'] * len(positive_data) + ['negative'] * len(negative_data) + ['neutral'] * len(neutral_data)
-
-    # TF-IDF vectorization
-    tfidf_vectorizer = TfidfVectorizer()
-    X = tfidf_vectorizer.fit_transform(all_data)
-
-    from sklearn.model_selection import train_test_split
-    from sklearn.linear_model import LogisticRegression
-
-    # Split the dataset into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, labels, test_size=0.2, random_state=42)
-
-    # Train a logistic regression model
-    model = LogisticRegression(max_iter=10000)
-    model.fit(X_train, y_train)
-
-    predictions = model.predict(X_test)
-
-    from sklearn.metrics import accuracy_score
-
-    # Evaluate the model
-    accuracy = accuracy_score(y_test, predictions)
-    print(f"Accuracy: {accuracy}")
-    return model, tfidf_vectorizer
-
-
 def filter_word(text : str) -> str:
     #remove simbvoles
     # for s in need_to_remove:
@@ -104,38 +84,27 @@ def filter_word(text : str) -> str:
     return text
 
 
-# def claer_stop_word(text : str) -> str:
-#     text_tokens = word_tokenize(text)
-#     tokens_without_sw = [word for word in text_tokens if not word in stopwords.words()]
-#     return tokens_without_sw
-
-
 def extract_features(word_list):
     return dict([(word, True) for word in word_list])
 
 
-def calculate_article_rank(article_path : str, classifier, tfidf_vectorizer) -> float:
+def calculate_article_rank(article_path : str) -> str:
     try:
         with open(article_path, "r", encoding='utf-8', errors='ignore') as f:
             content = f.read()
             f.close()
     except:
-        return 0
+        return ""
 
     content = clear_file(content)
     content = filter_word(content)
-    # content = claer_stop_word(content)
 
-    preprocessed_text = preprocess_text(content)
-    text_vectorized = tfidf_vectorizer.transform([preprocessed_text])
-    prediction = classifier.predict(text_vectorized)
+    return content
 
-    if prediction[0] == "positive":
-        return 1
-    if prediction[0] == "neutral":
-        return 0
-    if prediction[0] == "negative":
-        return -1
+
+def create_dir(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 
 def clear_file(content : str) -> str:
@@ -148,31 +117,22 @@ def clear_file(content : str) -> str:
     with open(path_to_save, "w", encoding="utf-8") as f:
         f.write(cleantext)
 
-
-def write_ranks(ranks, path : str):
-    path = path + "/meta.json"
-    with open(path, "r+", encoding='utf-8') as f:
-        articles = json.load(f)
-        # f.close()
-        print("write_ranks:", len(articles), " : ", len(ranks))
-        for i in range(len(articles)):
-            # print(i)
-            if i > len(ranks):
-                print("error")
-                continue
-            articles[i]["article_rank"] = ranks[i]
-
-        f.seek(0)
-        json.dump(articles, f, indent=4)
-        print("writed: ", path)
-        f.truncate()
+def write_to_file(text : str, path : str):
+    try:
+        with open(path, "w", encoding='utf-8', errors='ignore') as f:
+            f.write(text)
+            f.close()
+    except:
+        return
 
 
-def rank_for_date(path, classifier, tfidf_vectorizer):
+def clear_date(path, path_to_save):
     path_to_meta = path + "/meta.json"
     if not os.path.exists(path_to_meta):
         print("Not fined: ", path_to_meta)
         return
+
+    shutil.copyfile(os.path.normpath(path_to_meta), os.path.normpath(path_to_save + "/meta.json"))
 
     with open(path_to_meta, "r+", encoding='utf-8') as f:
         articles = json.load(f)
@@ -182,22 +142,23 @@ def rank_for_date(path, classifier, tfidf_vectorizer):
                 print("Not fined: ", path_to_file)
                 continue
 
-            rank = calculate_article_rank(path_to_file, classifier, tfidf_vectorizer)
-            articles[i]["article_rank"] = rank
-        f.seek(0)
-        json.dump(articles, f, indent=4)
-        print("writed: ", path)
-        f.truncate()
+            clear_text = calculate_article_rank(path_to_file)
+            if clear_text == "":
+                continue
+            path_to_save_file = path_to_save + "/" + str(articles[i]["index"]) + ".txt"
+            write_to_file(clear_text, path_to_save_file)
+        f.close()
 
-
-def rank_for_date_set(paths, classifier, tfidf_vectorizer, number_of_thread):
+def clear_date_set(paths, number_of_thread, path_to_save):
     print("thread:", number_of_thread, "len:", len(paths))
     i = 0
     for path in paths:
-        print("start: " + path, " - ", i / len(paths), "thread:", number_of_thread)
-        rank_for_date(path, classifier, tfidf_vectorizer)
-        print("finish: " + path, " - ", i / len(paths), "thread:", number_of_thread)
+        path_to_save_date = path_to_save + "/" + os.path.basename(os.path.normpath(path))
+        create_dir(path_to_save_date)
+        print("start: " + path, " - ", str(int(i / len(paths) * 100)), "thread:", number_of_thread)
+        clear_date(path, path_to_save_date)
         i += 1
+        print("finish: " + path, " - ", str(int(i / len(paths) * 100)), "thread:", number_of_thread)
 
 
 def splitting_array(input_arr, count):
@@ -214,19 +175,20 @@ def splitting_array(input_arr, count):
     return out
 
 
-def calculate_articles_rank(options):
-    classifier, tfidf_vectorizer = learn_classifier()
+def main():
+    options = Options()
 
-    path_to_storage = options.path_to_storage
+    path_to_storage = os.path.normpath(options.path_to_storage)
+    path_to_save = os.path.normpath(options.path_to_save)
 
     n_cores = 24
 
-    for company_path in os.listdir(path_to_storage):
-        if not company_path in options.company:
-            print("skip: ", company_path)
+    for company_name in os.listdir(path_to_storage):
+        if not company_name in options.company:
+            print("skip: ", company_name)
             continue
 
-        company_path = path_to_storage + company_path
+        company_path = path_to_storage + "/" + company_name
         print("company_path:", company_path)
 
         count_date = 0
@@ -246,11 +208,13 @@ def calculate_articles_rank(options):
 
         pathes_set = splitting_array(pathes_all, n_cores)
         i = 0
+        path_to_save_company = path_to_save + "/" + company_name
+        create_dir(path_to_save_company)
 
         with futures.ProcessPoolExecutor(n_cores) as executor:
             to_do = []
             for pathes in pathes_set:
-                future_to_do = executor.submit(rank_for_date_set, pathes, classifier, tfidf_vectorizer, len(to_do))
+                future_to_do = executor.submit(clear_date_set, pathes, len(to_do), path_to_save_company)
                 to_do.append(future_to_do)
 
             for future in futures.as_completed(to_do):
@@ -263,3 +227,5 @@ def calculate_articles_rank(options):
     print("finish")
 
 
+if __name__ == "__main__":
+    sys.exit(main())
